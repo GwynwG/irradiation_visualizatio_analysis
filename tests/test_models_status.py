@@ -41,7 +41,11 @@ def test_monitoring_record_key():
 
 
 def test_validate_structured_ids():
+    assert validate_room_device_ids("R01", "R01-D01") == []
     assert validate_room_device_ids("R01", "R01-D10") == []
+    assert validate_room_device_ids("R20", "R20-D10") == []
+    assert validate_room_device_ids("R00", "R00-D01")
+    assert validate_room_device_ids("R01", "R01-D00")
     assert validate_room_device_ids("R21", "R21-D01")
     assert validate_room_device_ids("R01", "R02-D01")
 
