@@ -167,6 +167,23 @@ def test_imports_long_table_and_normalizes_dates_and_text_fields():
     assert second.date_only is False
 
 
+def test_finds_required_headers_after_first_twenty_rows():
+    result = import_workbooks(
+        [
+            uploaded(
+                "late-header.xlsx",
+                [row()],
+                preamble=[[f"note {index}"] for index in range(25)],
+            )
+        ]
+    )
+
+    assert len(result.records) == 1
+    assert result.records[0].source_row == 27
+    assert result.summary.valid_rows == 1
+    assert "required_columns_missing" not in issue_codes(result)
+
+
 def test_parses_supported_string_date_and_datetime_formats():
     result = import_workbooks(
         [

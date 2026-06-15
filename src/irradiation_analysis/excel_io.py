@@ -74,9 +74,8 @@ def _text(value: object) -> str:
 
 
 def _find_header(worksheet: Worksheet) -> _SheetCandidate | None:
-    last_header_row = min(20, worksheet.max_row)
     for row_number, cells in enumerate(
-        worksheet.iter_rows(min_row=1, max_row=last_header_row),
+        worksheet.iter_rows(min_row=1, max_row=worksheet.max_row),
         start=1,
     ):
         columns: dict[str, int] = {}
