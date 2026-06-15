@@ -1,11 +1,3 @@
-from app import id_to_row_col, parse_point_ids, parse_report_text, row_col_to_id
-from app import (
-    apply_selection_action,
-    extract_selected_ids,
-    id_to_row_col,
-    parse_point_ids,
-    parse_report_text,
-    row_col_to_id,
 from app import (
     apply_pollution_action,
     apply_selection_action,
