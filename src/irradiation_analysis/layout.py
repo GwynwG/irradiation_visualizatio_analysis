@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import plotly.graph_objects as go
+
 from irradiation_analysis.models import MonitoringSnapshot, MonitoringStatus
 from irradiation_analysis.snapshots import all_room_ids
 
@@ -11,6 +13,13 @@ STATUS_COLORS = {
     MonitoringStatus.NORMAL: "#22c55e",
     MonitoringStatus.WARNING: "#f59e0b",
     MonitoringStatus.ACCIDENT: "#dc2626",
+}
+
+STATUS_LABELS = {
+    MonitoringStatus.NO_DATA: "无数据",
+    MonitoringStatus.NORMAL: "正常",
+    MonitoringStatus.WARNING: "预警",
+    MonitoringStatus.ACCIDENT: "事故级",
 }
 
 LAYOUT_BY_ROOM = {
@@ -113,39 +122,51 @@ class RoomLayout:
 
 
 @dataclass(frozen=True)
+class AisleLayout:
+    label: str
+    bounds: Rect
+
+
+@dataclass(frozen=True)
 class FacilityLayout:
     rooms: tuple[RoomLayout, ...]
+    aisles: tuple[AisleLayout, AisleLayout]
     main_aisles: tuple[Rect, Rect]
     bounds: Rect
 
 
 def build_facility_layout() -> FacilityLayout:
     rooms = tuple(_build_room(room_id) for room_id in all_room_ids())
-    main_aisles = (
-        Rect(0.0, AISLE_A_Y, FACILITY_WIDTH, AISLE_A_Y + MAIN_AISLE_HEIGHT),
-        Rect(0.0, AISLE_B_Y, FACILITY_WIDTH, AISLE_B_Y + MAIN_AISLE_HEIGHT),
+    aisles = (
+        AisleLayout(
+            label="主过道 A",
+            bounds=Rect(0.0, AISLE_A_Y, FACILITY_WIDTH, AISLE_A_Y + MAIN_AISLE_HEIGHT),
+        ),
+        AisleLayout(
+            label="主过道 B",
+            bounds=Rect(0.0, AISLE_B_Y, FACILITY_WIDTH, AISLE_B_Y + MAIN_AISLE_HEIGHT),
+        ),
     )
     return FacilityLayout(
         rooms=rooms,
-        main_aisles=main_aisles,
+        aisles=aisles,
+        main_aisles=tuple(aisle.bounds for aisle in aisles),
         bounds=Rect(0.0, 0.0, FACILITY_WIDTH, FACILITY_HEIGHT),
     )
 
 
 def build_facility_figure(
     snapshot: MonitoringSnapshot, selected_device_id: str | None = None
-):
-    import plotly.graph_objects as go
-
+) -> go.Figure:
     layout = build_facility_layout()
     fig = go.Figure()
 
-    for index, aisle in enumerate(layout.main_aisles, start=1):
-        _add_rect_shape(fig, aisle, fillcolor="#dbeafe", line_color="#bfdbfe")
+    for aisle in layout.aisles:
+        _add_rect_shape(fig, aisle.bounds, fillcolor="#dbeafe", line_color="#bfdbfe")
         fig.add_annotation(
-            x=aisle.center_x,
-            y=aisle.center_y,
-            text=f"Main Aisle {'A' if index == 1 else 'B'}",
+            x=aisle.bounds.center_x,
+            y=aisle.bounds.center_y,
+            text=aisle.label,
             showarrow=False,
             font={"size": 11, "color": "#1e3a8a"},
         )
@@ -167,7 +188,7 @@ def build_facility_figure(
         fig.add_annotation(
             x=room.bounds.x0 + 6,
             y=room.bounds.y1 - 6,
-            text=f"{room.room_id} ({room.layout_type})",
+            text=f"{room.room_id}（{room.layout_type}型）",
             showarrow=False,
             font={"size": 10, "color": "#0f172a"},
             xanchor="left",
@@ -189,9 +210,9 @@ def build_facility_figure(
             line_widths.append(4 if selected else 1)
             hover_text.append(
                 f"{device.device_id}<br>"
-                f"Room: {room.room_id}<br>"
-                f"Layout: {room.layout_type}<br>"
-                f"Status: {device_status.name}"
+                f"房间: {room.room_id}<br>"
+                f"布局: {room.layout_type}<br>"
+                f"状态: {STATUS_LABELS[device_status]}"
             )
             customdata.append(device.device_id)
 
@@ -200,7 +221,7 @@ def build_facility_figure(
             x=xs,
             y=ys,
             mode="markers+text",
-            name="Devices",
+            name="设备",
             text=labels,
             textposition="middle center",
             textfont={"size": 8, "color": "#0f172a"},
@@ -217,7 +238,7 @@ def build_facility_figure(
     )
 
     fig.update_layout(
-        title="Approved V5 Facility Layout",
+        title="V5设施布局",
         showlegend=False,
         plot_bgcolor="#ffffff",
         paper_bgcolor="#ffffff",
@@ -459,7 +480,7 @@ def _add_entrance_label(fig, room: RoomLayout) -> None:
     fig.add_annotation(
         x=room.bounds.center_x,
         y=y,
-        text="Entrance",
+        text="入口",
         showarrow=False,
         font={"size": 8, "color": "#334155"},
     )

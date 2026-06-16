@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import get_type_hints
 
 import plotly.graph_objects as go
 
@@ -64,6 +65,7 @@ def test_facility_layout_has_approved_room_sequence_and_main_aisles():
     assert [room.room_id for room in layout.rooms] == [
         f"R{room:02d}" for room in range(1, 21)
     ]
+    assert [aisle.label for aisle in layout.aisles] == ["主过道 A", "主过道 B"]
     assert len(layout.main_aisles) == 2
 
     all_placed_ids = [
@@ -148,10 +150,17 @@ def test_facility_figure_renders_status_colors_and_selected_outline():
 
     fig = build_facility_figure(snapshot, selected_device_id="R01-D01")
 
+    assert get_type_hints(build_facility_figure)["return"] is go.Figure
     assert isinstance(fig, go.Figure)
     assert len(fig.layout.shapes) >= 20 + 2
+    assert fig.layout.title.text == "V5设施布局"
 
-    device_trace = next(trace for trace in fig.data if trace.name == "Devices")
+    annotation_texts = [annotation.text for annotation in fig.layout.annotations]
+    assert annotation_texts.count("入口") == 20
+    assert "主过道 A" in annotation_texts
+    assert "主过道 B" in annotation_texts
+
+    device_trace = next(trace for trace in fig.data if trace.name == "设备")
     selected_index = list(device_trace.customdata).index("R01-D01")
 
     assert device_trace.marker.color[selected_index] == STATUS_COLORS[
@@ -163,3 +172,9 @@ def test_facility_figure_renders_status_colors_and_selected_outline():
         if index != selected_index
     )
     assert "R01-D01" in device_trace.hovertext[selected_index]
+    assert "房间: R01" in device_trace.hovertext[selected_index]
+    assert "布局: A" in device_trace.hovertext[selected_index]
+    assert "状态:" in device_trace.hovertext[selected_index]
+    assert "Room:" not in device_trace.hovertext[selected_index]
+    assert "Layout:" not in device_trace.hovertext[selected_index]
+    assert "Status:" not in device_trace.hovertext[selected_index]
