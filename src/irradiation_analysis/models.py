@@ -54,3 +54,19 @@ class QualityIssue:
     source_sheet: str = ""
     source_row: int | None = None
     details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class DeviceSnapshot:
+    device_id: str
+    room_id: str
+    status: MonitoringStatus
+    latest_by_series: dict[tuple[str, str], MonitoringRecord]
+    most_severe_record: MonitoringRecord | None
+
+
+@dataclass(frozen=True)
+class MonitoringSnapshot:
+    selected_at: datetime
+    devices: dict[str, DeviceSnapshot]
+    room_statuses: dict[str, MonitoringStatus]
