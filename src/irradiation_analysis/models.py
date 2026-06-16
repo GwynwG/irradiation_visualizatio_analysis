@@ -20,6 +20,13 @@ class MonitoringStatus(str, Enum):
         }[self]
 
 
+class ForecastHorizon(str, Enum):
+    NEXT_RECORD = "下一条记录"
+    DAYS_1 = "未来1天"
+    DAYS_7 = "未来7天"
+    DAYS_30 = "未来30天"
+
+
 @dataclass(frozen=True)
 class MonitoringRecord:
     monitored_at: datetime
@@ -43,6 +50,39 @@ class MonitoringRecord:
     @property
     def key(self) -> tuple[datetime, str, str, str]:
         return (self.monitored_at, self.room_id, self.device_id, self.monitor_type)
+
+
+@dataclass(frozen=True)
+class SeriesForecast:
+    room_id: str
+    device_id: str
+    monitor_type: str
+    unit: str
+    horizon: ForecastHorizon
+    predicted_at: datetime
+    predicted_value: float
+    predicted_status: MonitoringStatus
+    warning_threshold: float
+    control_threshold: float
+    method: str
+    sample_count: int
+    training_start: datetime
+    training_end: datetime
+    confidence: str
+    explanation: str
+
+
+@dataclass(frozen=True)
+class SystemForecast:
+    horizon: ForecastHorizon
+    series_forecasts: tuple[SeriesForecast, ...]
+    device_statuses: dict[str, MonitoringStatus]
+    normal_devices: int
+    warning_devices: int
+    accident_devices: int
+    no_data_devices: int
+    summary: str = ""
+    reasons: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
