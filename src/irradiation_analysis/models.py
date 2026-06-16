@@ -70,3 +70,63 @@ class MonitoringSnapshot:
     selected_at: datetime
     devices: dict[str, DeviceSnapshot]
     room_statuses: dict[str, MonitoringStatus]
+
+
+@dataclass(frozen=True)
+class AbnormalEvent:
+    room_id: str
+    device_id: str
+    monitor_type: str
+    unit: str
+    started_at: datetime
+    ended_at: datetime | None
+    highest_status: MonitoringStatus
+    peak_value: float
+    peak_time: datetime
+    record_count: int
+    duration_days: float
+    source_records: tuple[MonitoringRecord, ...]
+    reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class GrowthSignal:
+    room_id: str
+    device_id: str
+    monitor_type: str
+    unit: str
+    latest_at: datetime
+    latest_value: float
+    previous_value: float
+    recent_change: float
+    recent_slope_per_day: float
+    median_abs_step: float
+    sample_count: int
+    multiplier: float
+    score: float
+    reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RiskResult:
+    room_id: str
+    device_id: str
+    score: float
+    status: MonitoringStatus
+    component_scores: dict[str, float]
+    events: tuple[AbnormalEvent, ...]
+    growth_signals: tuple[GrowthSignal, ...]
+    record_count: int
+    reasons: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class RoomRiskResult:
+    room_id: str
+    score: float
+    max_device_score: float
+    abnormal_device_ratio: float
+    duration_score: float
+    device_count: int
+    abnormal_device_count: int
+    reasons: tuple[str, ...]
