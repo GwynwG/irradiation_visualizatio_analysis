@@ -167,4 +167,6 @@ def test_room_risk_aggregates_device_risk_and_abnormal_ratio():
     assert room_risks[0].abnormal_device_count == 1
     assert room_risks[0].device_count == 2
     assert room_risks[0].abnormal_device_ratio == 0.5
+    assert room_risks[0].event_count == 1
+    assert room_risks[0].longest_event_duration_days == 0.0
     assert room_risks[0].reasons

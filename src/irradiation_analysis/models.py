@@ -129,4 +129,6 @@ class RoomRiskResult:
     duration_score: float
     device_count: int
     abnormal_device_count: int
+    event_count: int
+    longest_event_duration_days: float
     reasons: tuple[str, ...]

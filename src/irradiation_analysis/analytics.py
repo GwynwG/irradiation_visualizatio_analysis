@@ -196,6 +196,16 @@ def rank_room_risks(
             ),
             default=0.0,
         )
+        room_events = [
+            event
+            for risk in room_risks
+            for event in risk.events
+        ]
+        event_count = len(room_events)
+        longest_event_duration = max(
+            (event.duration_days for event in room_events),
+            default=0.0,
+        )
         score = _clamp_score(
             max_device_score * 0.60
             + abnormal_ratio * 100.0 * 0.25
@@ -210,7 +220,15 @@ def rank_room_risks(
                 duration_score=duration_score,
                 device_count=device_count,
                 abnormal_device_count=abnormal_count,
-                reasons=_room_reasons(max_device_score, abnormal_ratio, duration_score),
+                event_count=event_count,
+                longest_event_duration_days=round(longest_event_duration, 6),
+                reasons=_room_reasons(
+                    max_device_score,
+                    abnormal_ratio,
+                    duration_score,
+                    event_count,
+                    longest_event_duration,
+                ),
             )
         )
 
@@ -421,14 +439,21 @@ def _risk_reasons(
 
 
 def _room_reasons(
-    max_device_score: float, abnormal_ratio: float, duration_score: float
+    max_device_score: float,
+    abnormal_ratio: float,
+    duration_score: float,
+    event_count: int,
+    longest_event_duration: float,
 ) -> tuple[str, ...]:
     reasons = [
         f"max_device_score={max_device_score:.1f}",
         f"abnormal_device_ratio={abnormal_ratio:.2f}",
+        f"event_count={event_count}",
     ]
     if duration_score > 0:
         reasons.append(f"duration_score={duration_score:.1f}")
+    if longest_event_duration > 0:
+        reasons.append(f"longest_event_duration_days={longest_event_duration:.1f}")
     return tuple(reasons)
 
 
