@@ -4,8 +4,6 @@ from typing import get_type_hints
 import plotly.graph_objects as go
 
 from irradiation_analysis.layout import (
-    LAYOUT_BY_ROOM,
-    STATUS_COLORS,
     build_facility_figure,
     build_facility_layout,
 )
@@ -15,6 +13,37 @@ from irradiation_analysis.models import (
     MonitoringStatus,
 )
 from irradiation_analysis.snapshots import all_device_ids
+
+
+EXPECTED_LAYOUT_BY_ROOM = {
+    "R01": "A",
+    "R02": "B",
+    "R03": "C",
+    "R04": "A",
+    "R05": "B",
+    "R06": "C",
+    "R07": "A",
+    "R08": "B",
+    "R09": "C",
+    "R10": "A",
+    "R11": "B",
+    "R12": "C",
+    "R13": "A",
+    "R14": "B",
+    "R15": "C",
+    "R16": "A",
+    "R17": "B",
+    "R18": "C",
+    "R19": "A",
+    "R20": "B",
+}
+
+EXPECTED_STATUS_COLORS = {
+    MonitoringStatus.NO_DATA: "#94a3b8",
+    MonitoringStatus.NORMAL: "#22c55e",
+    MonitoringStatus.WARNING: "#f59e0b",
+    MonitoringStatus.ACCIDENT: "#dc2626",
+}
 
 
 def room_layout(layout, room_id):
@@ -84,6 +113,12 @@ def test_facility_layout_has_approved_room_sequence_and_main_aisles():
     assert {room.entrance_side for room in third_row} == {"bottom"}
     assert {room.entrance_side for room in fourth_row} == {"top"}
 
+    assert (
+        first_row[0].bounds.y0
+        > second_row[0].bounds.y0
+        > third_row[0].bounds.y0
+        > fourth_row[0].bounds.y0
+    )
     assert min(room.bounds.y0 for room in first_row) >= layout.main_aisles[0].y1
     assert max(room.bounds.y1 for room in second_row) <= layout.main_aisles[0].y0
     assert min(room.bounds.y0 for room in third_row) >= layout.main_aisles[1].y1
@@ -95,13 +130,13 @@ def test_layout_type_assignment_matches_v5_specification():
 
     assert {
         room.room_id: room.layout_type for room in layout.rooms
-    } == LAYOUT_BY_ROOM
+    } == EXPECTED_LAYOUT_BY_ROOM
 
 
 def test_a_layout_keeps_entry_axis_clear_with_six_far_and_four_entry_devices():
     layout = build_facility_layout()
 
-    for room_id, layout_type in LAYOUT_BY_ROOM.items():
+    for room_id, layout_type in EXPECTED_LAYOUT_BY_ROOM.items():
         if layout_type != "A":
             continue
         room = room_layout(layout, room_id)
@@ -115,7 +150,7 @@ def test_a_layout_keeps_entry_axis_clear_with_six_far_and_four_entry_devices():
 def test_b_layout_uses_side_banks_and_far_end_pair():
     layout = build_facility_layout()
 
-    for room_id, layout_type in LAYOUT_BY_ROOM.items():
+    for room_id, layout_type in EXPECTED_LAYOUT_BY_ROOM.items():
         if layout_type != "B":
             continue
         room = room_layout(layout, room_id)
@@ -130,7 +165,7 @@ def test_b_layout_uses_side_banks_and_far_end_pair():
 def test_c_layout_keeps_center_ring_and_radial_entrance_clear():
     layout = build_facility_layout()
 
-    for room_id, layout_type in LAYOUT_BY_ROOM.items():
+    for room_id, layout_type in EXPECTED_LAYOUT_BY_ROOM.items():
         if layout_type != "C":
             continue
         room = room_layout(layout, room_id)
@@ -146,7 +181,13 @@ def test_c_layout_keeps_center_ring_and_radial_entrance_clear():
 
 
 def test_facility_figure_renders_status_colors_and_selected_outline():
-    snapshot = sample_snapshot({"R01-D01": MonitoringStatus.ACCIDENT})
+    device_statuses = {
+        "R01-D01": MonitoringStatus.ACCIDENT,
+        "R01-D02": MonitoringStatus.WARNING,
+        "R01-D03": MonitoringStatus.NORMAL,
+        "R01-D04": MonitoringStatus.NO_DATA,
+    }
+    snapshot = sample_snapshot(device_statuses)
 
     fig = build_facility_figure(snapshot, selected_device_id="R01-D01")
 
@@ -163,9 +204,10 @@ def test_facility_figure_renders_status_colors_and_selected_outline():
     device_trace = next(trace for trace in fig.data if trace.name == "设备")
     selected_index = list(device_trace.customdata).index("R01-D01")
 
-    assert device_trace.marker.color[selected_index] == STATUS_COLORS[
-        MonitoringStatus.ACCIDENT
-    ]
+    for device_id, status in device_statuses.items():
+        index = list(device_trace.customdata).index(device_id)
+        assert device_trace.marker.color[index] == EXPECTED_STATUS_COLORS[status]
+
     assert device_trace.marker.line.width[selected_index] > max(
         width
         for index, width in enumerate(device_trace.marker.line.width)
