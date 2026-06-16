@@ -4,9 +4,9 @@ from irradiation_analysis.models import MonitoringRecord, MonitoringStatus
 
 
 def classify_record(record: MonitoringRecord) -> MonitoringStatus:
-    if record.value >= record.control_threshold:
+    if record.control_threshold > 0 and record.value >= record.control_threshold:
         return MonitoringStatus.ACCIDENT
-    if record.value >= record.warning_threshold:
+    if record.warning_threshold > 0 and record.value >= record.warning_threshold:
         return MonitoringStatus.WARNING
     return MonitoringStatus.NORMAL
 

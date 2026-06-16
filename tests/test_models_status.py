@@ -67,6 +67,14 @@ def test_threshold_equality_enters_abnormal_state():
     assert classify_record(record(20.0)) is MonitoringStatus.ACCIDENT
 
 
+def test_non_positive_thresholds_are_ignored_for_classification():
+    assert classify_record(record(8.0, warning=10.0, control=0.0)) is MonitoringStatus.NORMAL
+    assert classify_record(record(12.0, warning=10.0, control=0.0)) is MonitoringStatus.WARNING
+    assert classify_record(record(8.0, warning=0.0, control=20.0)) is MonitoringStatus.NORMAL
+    assert classify_record(record(21.0, warning=0.0, control=20.0)) is MonitoringStatus.ACCIDENT
+    assert classify_record(record(8.0, warning=-1.0, control=-2.0)) is MonitoringStatus.NORMAL
+
+
 def test_worst_status_uses_most_severe_monitor_type():
     assert worst_status(
         [MonitoringStatus.NORMAL, MonitoringStatus.ACCIDENT]

@@ -99,6 +99,25 @@ def test_near_threshold_uses_eighty_percent_default():
     assert all(candidate.value < candidate.warning_threshold for candidate in candidates)
 
 
+def test_non_positive_thresholds_do_not_create_false_abnormal_risk():
+    records = [
+        record(1, 8.0, warning=10.0, control=0.0),
+        record(2, 8.0, device_id="R01-D02", warning=-1.0, control=-2.0),
+    ]
+
+    assert build_abnormal_events(records) == []
+    assert [candidate.device_id for candidate in find_near_threshold(records)] == [
+        "R01-D01"
+    ]
+
+    risks = rank_device_risks(records)
+    assert {risk.device_id: risk.status for risk in risks} == {
+        "R01-D01": MonitoringStatus.NORMAL,
+        "R01-D02": MonitoringStatus.NORMAL,
+    }
+    assert all(risk.score < 10 for risk in risks)
+
+
 def test_growth_signal_uses_elapsed_days_and_median_step():
     signals = find_growth_signals(
         [
