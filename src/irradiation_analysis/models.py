@@ -148,6 +148,23 @@ class GrowthSignal:
 
 
 @dataclass(frozen=True)
+class WarningAlert:
+    room_id: str
+    device_id: str
+    monitor_type: str
+    unit: str
+    rule_code: str
+    level: str
+    score: float
+    triggered_at: datetime
+    current_value: float | None
+    warning_threshold: float | None
+    control_threshold: float | None
+    evidence: str
+    recommended_action: str
+
+
+@dataclass(frozen=True)
 class RiskResult:
     room_id: str
     device_id: str
