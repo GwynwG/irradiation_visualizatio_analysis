@@ -233,8 +233,8 @@ def workbook_from_report():
     return load_workbook(BytesIO(content), data_only=True)
 
 
-def column_for_header(worksheet, header: str) -> int:
-    headers = [cell.value for cell in worksheet[1]]
+def column_for_header(worksheet, header: str, header_row: int = 1) -> int:
+    headers = [cell.value for cell in worksheet[header_row]]
     return headers.index(header) + 1
 
 
@@ -244,9 +244,15 @@ def assert_fill_suffix(cell, suffix: str) -> None:
     assert cell.fill.fgColor.rgb.upper().endswith(suffix)
 
 
-def assert_column_format(worksheet, header: str, number_format: str) -> None:
-    column = column_for_header(worksheet, header)
-    assert worksheet.cell(row=2, column=column).number_format == number_format
+def assert_column_format(
+    worksheet,
+    header: str,
+    number_format: str,
+    *,
+    header_row: int = 1,
+) -> None:
+    column = column_for_header(worksheet, header, header_row)
+    assert worksheet.cell(row=header_row + 1, column=column).number_format == number_format
 
 
 def summary_pairs(worksheet) -> dict[str, object]:
@@ -278,8 +284,9 @@ def test_report_formats_tables_statuses_and_data_columns():
 
     for sheet_name in TABLE_SHEETS:
         worksheet = workbook[sheet_name]
-        assert worksheet.freeze_panes == "A2"
         assert worksheet.auto_filter.ref is not None
+        expected_freeze = "A9" if sheet_name == "数据质量问题" else "A2"
+        assert worksheet.freeze_panes == expected_freeze
 
     event_status_column = column_for_header(events_sheet, "最高状态")
     risk_status_column = column_for_header(device_risk_sheet, "当前状态")
@@ -332,6 +339,8 @@ def test_summary_sheet_includes_required_high_level_content():
     assert pairs["房间数"] == 1
     assert pairs["设备数"] == 2
     assert pairs["监测类型"] == "γ剂量率"
+    assert pairs["质量分"] == 82.2
+    assert pairs["质量等级"] == "可用"
 
     assert pairs["设备正常数"] == 0
     assert pairs["设备预警数"] == 1
@@ -370,7 +379,7 @@ def test_report_includes_source_fields_forecast_context_and_quality_details():
     forecast_sheet = workbook["趋势预测"]
     forecast_headers = [cell.value for cell in forecast_sheet[1]]
     quality_sheet = workbook["数据质量问题"]
-    quality_headers = [cell.value for cell in quality_sheet[1]]
+    quality_headers = [cell.value for cell in quality_sheet[8]]
     forecast_values = [
         value
         for row in forecast_sheet.iter_rows(values_only=True)
@@ -397,6 +406,9 @@ def test_report_includes_source_fields_forecast_context_and_quality_details():
     assert {"预测方法", "样本数", "置信度", "说明"}.issubset(forecast_headers)
     assert any("预测结果仅供趋势研判参考" in str(value) for value in forecast_values)
     assert {"来源文件", "来源工作表", "来源行号", "详情"}.issubset(quality_headers)
+    assert quality_sheet["A1"].value == "数据质量概览"
+    assert quality_sheet["B2"].value == 82.2
+    assert quality_sheet["D2"].value == "可用"
     assert any("unit_changed" in str(value) for value in quality_values)
     assert any("R01-D01" in str(value) for value in quality_values)
 

@@ -26,6 +26,7 @@ from irradiation_analysis.models import (
     SystemForecast,
     WarningAlert,
 )
+from irradiation_analysis.quality import QualityAssessment, assess_import_quality
 
 
 SHEET_NAMES = (
@@ -92,6 +93,7 @@ def build_analysis_report(report_input: AnalysisReportInput) -> bytes:
     _write_quality_issues_sheet(
         worksheets["数据质量问题"],
         report_input.import_result.issues,
+        assess_import_quality(report_input.import_result),
     )
 
     generated_at = report_input.generated_at or datetime.now()
@@ -117,6 +119,7 @@ def _write_summary_sheet(
 
     generated_at = report_input.generated_at or datetime.now()
     summary = report_input.import_result.summary
+    quality = assess_import_quality(report_input.import_result)
     device_status_counts = _status_counts(
         device.status for device in report_input.snapshot.devices.values()
     )
@@ -140,6 +143,7 @@ def _write_summary_sheet(
         ("完全重复行数", summary.exact_duplicate_rows, "冲突键数", summary.conflict_keys),
         ("房间数", summary.room_count, "设备数", summary.device_count),
         ("监测类型", "、".join(summary.monitor_types), "", ""),
+        ("质量分", quality.score, "质量等级", quality.grade),
         ("", "", "", ""),
         ("快照状态统计", "", "", ""),
         (
@@ -208,7 +212,7 @@ def _write_summary_sheet(
     for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row):
         for cell in row:
             cell.alignment = Alignment(vertical="top", wrap_text=True)
-    for row_index in (4, 11, 17, 24):
+    for row_index in (4, 12, 18, 25):
         for cell in worksheet[row_index]:
             cell.font = Font(bold=True)
             cell.fill = SECTION_FILL
@@ -556,7 +560,31 @@ def _write_cleaned_data_sheet(
 def _write_quality_issues_sheet(
     worksheet: Worksheet,
     issues: Sequence[QualityIssue],
+    assessment: QualityAssessment,
 ) -> None:
+    worksheet["A1"] = "数据质量概览"
+    worksheet["A1"].font = Font(bold=True, size=14)
+    worksheet["A1"].fill = HEADER_FILL
+    worksheet.merge_cells("A1:D1")
+    overview_rows = (
+        ("质量分", assessment.score, "质量等级", assessment.grade),
+        ("有效率", assessment.valid_rate, "阻断率", assessment.blocked_rate),
+        ("重复率", assessment.duplicate_rate, "冲突率", assessment.conflict_rate),
+        ("提示问题数", assessment.warning_count, "阻断问题数", assessment.error_count),
+        ("扣分原因", "；".join(assessment.reasons), "", ""),
+        ("", "", "", ""),
+    )
+    for row in overview_rows:
+        worksheet.append(row)
+    for row in worksheet.iter_rows(min_row=1, max_row=worksheet.max_row):
+        for cell in row:
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+    for cell in worksheet[2]:
+        cell.number_format = NUMBER_FORMAT
+    for row_index in (3, 4):
+        worksheet.cell(row=row_index, column=2).number_format = PERCENT_FORMAT
+        worksheet.cell(row=row_index, column=4).number_format = PERCENT_FORMAT
+
     headers = (
         "级别",
         "问题代码",
@@ -566,6 +594,7 @@ def _write_quality_issues_sheet(
         "来源行号",
         "详情",
     )
+    header_row = worksheet.max_row + 1
     _write_headers(worksheet, headers)
     for issue in issues:
         worksheet.append(
@@ -579,12 +608,12 @@ def _write_quality_issues_sheet(
                 _json_details(issue.details),
             )
         )
-    _finalize_table(worksheet, len(headers), integer_columns=(6,))
+    _finalize_table(worksheet, len(headers), integer_columns=(6,), header_row=header_row)
 
 
 def _write_headers(worksheet: Worksheet, headers: Sequence[str]) -> None:
     worksheet.append(tuple(headers))
-    for cell in worksheet[1]:
+    for cell in worksheet[worksheet.max_row]:
         cell.font = Font(bold=True)
         cell.fill = HEADER_FILL
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -598,19 +627,21 @@ def _finalize_table(
     numeric_columns: Iterable[int] = (),
     integer_columns: Iterable[int] = (),
     percent_columns: Iterable[int] = (),
+    header_row: int = 1,
 ) -> None:
-    worksheet.freeze_panes = "A2"
-    worksheet.auto_filter.ref = f"A1:{get_column_letter(column_count)}{worksheet.max_row}"
+    data_start = header_row + 1
+    worksheet.freeze_panes = f"A{data_start}"
+    worksheet.auto_filter.ref = f"A{header_row}:{get_column_letter(column_count)}{worksheet.max_row}"
     _set_widths(worksheet, _default_widths(column_count))
 
-    for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row):
+    for row in worksheet.iter_rows(min_row=data_start, max_row=worksheet.max_row):
         for cell in row:
             cell.alignment = Alignment(vertical="top", wrap_text=True)
     for column in datetime_columns:
         for cell in worksheet.iter_cols(
             min_col=column,
             max_col=column,
-            min_row=2,
+            min_row=data_start,
             max_row=worksheet.max_row,
         ):
             for item in cell:
@@ -619,7 +650,7 @@ def _finalize_table(
         for cell in worksheet.iter_cols(
             min_col=column,
             max_col=column,
-            min_row=2,
+            min_row=data_start,
             max_row=worksheet.max_row,
         ):
             for item in cell:
@@ -628,7 +659,7 @@ def _finalize_table(
         for cell in worksheet.iter_cols(
             min_col=column,
             max_col=column,
-            min_row=2,
+            min_row=data_start,
             max_row=worksheet.max_row,
         ):
             for item in cell:
@@ -637,7 +668,7 @@ def _finalize_table(
         for cell in worksheet.iter_cols(
             min_col=column,
             max_col=column,
-            min_row=2,
+            min_row=data_start,
             max_row=worksheet.max_row,
         ):
             for item in cell:

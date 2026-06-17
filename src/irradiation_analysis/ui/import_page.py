@@ -4,10 +4,12 @@ import json
 from typing import Any
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from irradiation_analysis.excel_io import ImportResult, UploadedWorkbook, import_workbooks
 from irradiation_analysis.models import MonitoringRecord, QualityIssue
+from irradiation_analysis.quality import QualityAssessment, assess_import_quality
 from irradiation_analysis.ui.styles import format_datetime, render_metrics
 
 
@@ -43,6 +45,7 @@ def render_import_page() -> None:
         return
 
     _render_import_summary(result)
+    _render_quality_assessment(assess_import_quality(result))
     _render_issue_tables(result.issues)
     _render_record_preview(result.records)
 
@@ -108,6 +111,42 @@ def _render_import_summary(result: ImportResult) -> None:
             ("监测类型", len(summary.monitor_types), "已识别的监测类型数量"),
             ("冲突键", summary.conflict_keys, "同一监测键存在多版本记录的数量"),
         ]
+    )
+
+
+def _render_quality_assessment(assessment: QualityAssessment) -> None:
+    st.subheader("质量评分")
+    render_metrics(
+        [
+            ("质量分", f"{assessment.score:.1f}", "综合阻断行、冲突、重复和提示类问题"),
+            ("质量等级", assessment.grade, None),
+            ("有效率", f"{assessment.valid_rate:.1%}", "有效记录数 / 原始数据行"),
+            ("阻断率", f"{assessment.blocked_rate:.1%}", "阻断行 / 原始数据行"),
+        ]
+    )
+    if assessment.reasons:
+        st.caption("；".join(assessment.reasons))
+
+    if not assessment.issue_counts:
+        st.success("未发现可统计的质量问题。")
+        return
+
+    issue_frame = pd.DataFrame(
+        {"问题代码": code, "数量": count}
+        for code, count in assessment.issue_counts
+    )
+    st.plotly_chart(
+        px.bar(
+            issue_frame,
+            x="问题代码",
+            y="数量",
+            text="数量",
+        ).update_layout(
+            margin=dict(l=10, r=10, t=20, b=10),
+            xaxis_title="质量问题",
+            yaxis_title="数量",
+        ),
+        use_container_width=True,
     )
 
 
